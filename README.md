@@ -5,6 +5,10 @@ the operator's Mac, and a **Stage** window that shows a giant countdown on a
 projector or second screen. See [build.md](build.md) for the full design
 spec and [PROGRAM.md](PROGRAM.md) for the run-of-service feature.
 
+**[egokiemute.github.io/stagetime →](https://egokiemute.github.io/stagetime/)**
+— the easiest way to send someone a download link; it auto-detects their OS
+and links straight to the right installer.
+
 ## Install
 
 Grab the latest build for your system from the

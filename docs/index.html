@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stage Timer</title>
+<meta name="description" content="A countdown timer built for church services — control window for the operator, giant countdown for the platform." />
+<style>
+  :root {
+    --bg: #0e0e11;
+    --panel: #17171c;
+    --hairline: #26262c;
+    --text: #f2f2f4;
+    --text-dim: #8b8b93;
+    --jade: #2fb682;
+    --amber: #ffc24b;
+    --coral: #ff6b4a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 64px 24px 80px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--jade);
+    box-shadow: 0 0 8px var(--jade);
+    margin-right: 8px;
+  }
+  h1 {
+    font-size: 2.4rem;
+    margin: 0 0 8px;
+  }
+  .tagline {
+    color: var(--text-dim);
+    font-size: 1.05rem;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* mock clock preview — pure CSS, no screenshot needed */
+  .preview {
+    background: #000;
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 40px 20px;
+    text-align: center;
+    margin: 40px 0;
+  }
+  .preview-label {
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.45);
+    margin-bottom: 10px;
+  }
+  .preview-clock {
+    font-size: 4.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--amber);
+  }
+  .preview-msg {
+    margin-top: 14px;
+    font-size: 0.95rem;
+    color: var(--text-dim);
+  }
+
+  .downloads {
+    display: grid;
+    gap: 12px;
+    margin: 40px 0 16px;
+  }
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #1f1f26;
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 16px 20px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 1rem;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .btn:hover { background: #26262e; }
+  .btn .os { font-weight: 600; }
+  .btn .sub { color: var(--text-dim); font-size: 0.85rem; }
+  .btn.primary {
+    border-color: var(--jade);
+    background: rgba(47, 182, 130, 0.1);
+  }
+  .btn.primary .os { color: var(--jade); }
+  .btn .arrow { color: var(--text-dim); }
+
+  .secondary-links {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 48px;
+  }
+  .secondary-links a {
+    color: var(--text-dim);
+    margin: 0 8px;
+  }
+
+  section.features {
+    border-top: 1px solid var(--hairline);
+    padding-top: 32px;
+  }
+  section.features h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  ul.feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 10px;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+  ul.feature-list li::before {
+    content: "—";
+    color: var(--jade);
+    margin-right: 10px;
+  }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  footer a { color: var(--text-dim); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1><span class="dot"></span>Stage Timer</h1>
+      <p class="tagline">A countdown timer built for church services — a control panel for the operator, a giant clock for the platform.</p>
+    </header>
+
+    <div class="preview">
+      <div class="preview-label">Sermon</div>
+      <div class="preview-clock" id="previewClock">12:04</div>
+      <div class="preview-msg">Please wrap up</div>
+    </div>
+
+    <div class="downloads" id="downloads"></div>
+    <div class="secondary-links">
+      <a href="https://github.com/egokiemute/stagetime/releases/latest/download/Stage-Timer-x64.dmg">Mac (Intel)</a>
+      ·
+      <a href="https://github.com/egokiemute/stagetime/releases">All versions on GitHub</a>
+    </div>
+
+    <section class="features">
+      <h2>What it does</h2>
+      <ul class="feature-list">
+        <li>Two windows, one app — a control panel on your Mac, a full-screen countdown on the projector</li>
+        <li>Never quietly wrong: both screens always show the same number, accurate to the second over a 45-minute service</li>
+        <li>Overrun is unmissable — the countdown turns red before zero, then flips to a slow-breathing red "Time Up" screen</li>
+        <li>Paste a service order from WhatsApp and step through it segment by segment, with drift and projected finish time tracked live</li>
+        <li>Send messages to the platform ("5 minutes left," "Time is up") without touching the countdown</li>
+        <li>Keeps the Mac from sleeping or dimming for the whole service</li>
+      </ul>
+    </section>
+
+    <footer>
+      <a href="https://github.com/egokiemute/stagetime">View source on GitHub</a> · MIT licensed
+    </footer>
+  </div>
+
+  <script>
+    const REPO = 'https://github.com/egokiemute/stagetime';
+    const LATEST = REPO + '/releases/latest/download/';
+
+    const OPTIONS = [
+      { id: 'mac', os: 'macOS', sub: 'Apple Silicon · dmg', href: LATEST + 'Stage-Timer-arm64.dmg' },
+      { id: 'win', os: 'Windows', sub: '64-bit · exe installer', href: LATEST + 'Stage-Timer-Setup.exe' },
+      { id: 'linux', os: 'Linux', sub: 'AppImage', href: LATEST + 'Stage-Timer.AppImage' }
+    ];
+
+    function detectOS() {
+      const ua = navigator.userAgent;
+      if (/Mac/.test(ua)) return 'mac';
+      if (/Win/.test(ua)) return 'win';
+      if (/Linux/.test(ua)) return 'linux';
+      return 'mac';
+    }
+
+    const detected = detectOS();
+    const container = document.getElementById('downloads');
+
+    OPTIONS.forEach((opt) => {
+      const a = document.createElement('a');
+      a.className = 'btn' + (opt.id === detected ? ' primary' : '');
+      a.href = opt.href;
+      a.innerHTML =
+        `<span><span class="os">Download for ${opt.os}</span><br><span class="sub">${opt.sub}</span></span>` +
+        `<span class="arrow">↓</span>`;
+      container.appendChild(a);
+    });
+
+    // Cosmetic only — a slow amber↔white pulse so the mock preview doesn't
+    // look like a static image.
+    const clockEl = document.getElementById('previewClock');
+    let warm = true;
+    setInterval(() => {
+      warm = !warm;
+      clockEl.style.color = warm ? '#ffc24b' : '#ff6b4a';
+    }, 2400);
+  </script>
+</body>
+</html>

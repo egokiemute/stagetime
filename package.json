@@ -1,6 +1,6 @@
 {
   "name": "stagetimer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Stage countdown timer for church services — control window + projector display window.",
   "main": "main.js",
   "author": {
@@ -44,14 +44,18 @@
     ],
     "mac": {
       "target": ["dmg", "zip"],
-      "identity": null
+      "identity": null,
+      "arch": ["arm64", "x64"],
+      "artifactName": "Stage-Timer-${arch}.${ext}"
     },
     "win": {
-      "target": ["nsis"]
+      "target": ["nsis"],
+      "artifactName": "Stage-Timer-Setup.${ext}"
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "category": "AudioVideo"
+      "category": "AudioVideo",
+      "artifactName": "Stage-Timer.${ext}"
     }
   }
 }
