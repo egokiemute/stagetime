@@ -1,9 +1,12 @@
 {
   "name": "stagetimer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Stage countdown timer for church services — control window + projector display window.",
   "main": "main.js",
-  "author": "Ego Okiemute",
+  "author": {
+    "name": "Ego Okiemute",
+    "email": "ego.okiemute@gmail.com"
+  },
   "repository": "github:egokiemute/stagetime",
   "private": true,
   "scripts": {
