@@ -1,0 +1,155 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Stage Timer</title>
+  <link rel="stylesheet" href="control.css" />
+</head>
+<body>
+  <header class="titlebar">
+    <span class="dot" id="liveDot"></span>
+    <span>Stage Timer</span>
+    <span class="titlebar-program" id="titlebarProgramName"></span>
+    <div class="update-banner" id="updateBanner" style="display:none">
+      <span id="updateBannerText"></span>
+      <button id="installUpdateBtn">Restart &amp; update</button>
+    </div>
+  </header>
+
+  <section class="preview">
+    <div class="preview-clock" id="previewClock">5:00</div>
+    <div class="preview-status" id="previewStatus">Idle</div>
+    <div class="preview-drift" id="previewDrift"></div>
+  </section>
+
+  <div class="shell">
+    <aside class="rail">
+      <h2 class="eyebrow">Run of service</h2>
+      <div class="program-name" id="programName">No program loaded</div>
+      <div class="program-list" id="programList"></div>
+
+      <div class="transport-row">
+        <button id="prevItemBtn" title="Shortcut: P">◀ Previous</button>
+        <button id="nextItemBtn" title="Shortcut: N">Next ▶</button>
+      </div>
+      <div id="recoverRow" class="transport-row" style="display:none">
+        <button id="recoverBtn"></button>
+      </div>
+      <div class="transport-row">
+        <button id="pasteProgramBtn">Paste program</button>
+        <button id="saveProgramBtn">Save</button>
+      </div>
+      <select id="savedProgramsSelect" class="field">
+        <option value="">Saved programs…</option>
+      </select>
+      <div class="transport-row">
+        <button id="exportProgramBtn">Export JSON</button>
+        <button id="importProgramBtn">Import JSON</button>
+      </div>
+      <input type="file" id="importProgramInput" accept="application/json" style="display:none" />
+      <button id="copyReportBtn">Copy report</button>
+      <label class="checkbox"><input type="checkbox" id="showNextUpCheckbox" checked /> Show "next up" on stage</label>
+    </aside>
+
+    <main class="columns">
+    <div class="column">
+      <section class="panel">
+        <h2 class="eyebrow">Timer</h2>
+        <div class="tabs" id="modeTabs">
+          <button class="tab active" data-mode="duration">Length</button>
+          <button class="tab" data-mode="clock">At</button>
+          <button class="tab" data-mode="countup">Up</button>
+        </div>
+
+        <div class="presets" id="durationPresets">
+          <button data-min="1">1</button>
+          <button data-min="3">3</button>
+          <button data-min="5">5</button>
+          <button data-min="10">10</button>
+          <button data-min="15">15</button>
+          <button data-min="20">20</button>
+          <button data-min="30">30</button>
+          <button data-min="45">45</button>
+        </div>
+        <input type="text" id="durationField" class="field" placeholder="5:30" value="5:00" />
+
+        <input type="text" id="clockField" class="field" placeholder="09:00" style="display:none" />
+      </section>
+
+      <section class="panel">
+        <h2 class="eyebrow">Transport</h2>
+        <div class="transport-row">
+          <button id="transportBtn" class="primary">Start</button>
+          <button id="resetBtn">Reset</button>
+        </div>
+        <div class="nudge-row">
+          <button data-nudge="-60000">−1m</button>
+          <button data-nudge="-15000">−15s</button>
+          <button data-nudge="15000">+15s</button>
+          <button data-nudge="60000">+1m</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="column">
+      <section class="panel">
+        <h2 class="eyebrow">Message</h2>
+        <div class="presets" id="messagePresets">
+          <button data-msg="5 minutes left">5 minutes left</button>
+          <button data-msg="Please wrap up">Please wrap up</button>
+          <button data-msg="Time is up">Time is up</button>
+          <button data-msg="Go to altar call">Go to altar call</button>
+          <button data-msg="Take a seat">Take a seat</button>
+          <button data-msg="Hold for offering">Hold for offering</button>
+        </div>
+        <input type="text" id="customMessage" class="field" placeholder="Custom message — Enter to send" />
+        <div class="message-row">
+          <button id="clearMessageBtn">Clear</button>
+          <label class="checkbox"><input type="checkbox" id="flashCheckbox" /> Flash it</label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="eyebrow">Screen label</h2>
+        <input type="text" id="labelField" class="field" placeholder="Worship, Sermon…" />
+      </section>
+
+      <section class="panel">
+        <h2 class="eyebrow">Stage screen</h2>
+        <div class="transport-row">
+          <button id="blackoutBtn">Blackout</button>
+          <button id="moveScreenBtn">Move to next screen</button>
+        </div>
+        <div class="transport-row">
+          <button id="showDisplayBtn" title="Shortcut: S">Send to screen</button>
+          <button id="hideDisplayBtn" title="Shortcut: H">Close</button>
+        </div>
+      </section>
+    </div>
+    </main>
+  </div>
+
+  <dialog id="screenPickerDialog" class="paste-dialog">
+    <h2 class="eyebrow">Choose the stage screen</h2>
+    <div class="screen-picker-list" id="screenPickerList"></div>
+    <div class="paste-actions">
+      <button id="screenPickerCancelBtn">Cancel</button>
+    </div>
+  </dialog>
+
+  <dialog id="pasteDialog" class="paste-dialog">
+    <h2 class="eyebrow">Paste program</h2>
+    <textarea id="pasteInput" rows="10" placeholder="Paste the service order text here…"></textarea>
+    <div class="paste-preview" id="pastePreview"></div>
+    <div class="paste-summary" id="pasteSummary"></div>
+    <div class="paste-actions">
+      <button id="pasteCancelBtn">Cancel</button>
+      <button id="pasteApplyBtn" class="primary">Load program</button>
+    </div>
+  </dialog>
+
+  <script src="shared.js"></script>
+  <script src="program.js"></script>
+  <script src="control.js"></script>
+</body>
+</html>

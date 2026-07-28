@@ -1,0 +1,54 @@
+{
+  "name": "stagetimer",
+  "version": "1.0.0",
+  "description": "Stage countdown timer for church services — control window + projector display window.",
+  "main": "main.js",
+  "author": "Ego Okiemute",
+  "repository": "github:egokiemute/stagetime",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --dir",
+    "dmg": "electron-builder",
+    "release": "electron-builder --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.0.0"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "plus.tbh.stagetimer",
+    "productName": "Stage Timer",
+    "files": [
+      "main.js",
+      "preload.js",
+      "shared.js",
+      "program.js",
+      "control.html",
+      "control.css",
+      "control.js",
+      "display.html",
+      "display.css",
+      "display.js"
+    ],
+    "publish": [
+      {
+        "provider": "github"
+      }
+    ],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "identity": null
+    },
+    "win": {
+      "target": ["nsis"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "AudioVideo"
+    }
+  }
+}

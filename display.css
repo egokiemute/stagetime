@@ -1,0 +1,148 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000000;
+  cursor: none;
+  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.4s ease;
+}
+
+.label {
+  position: absolute;
+  top: 6vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 3vw;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.clock {
+  font-size: min(26vw, 60vh);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #ffffff;
+  transition: color 0.4s ease;
+}
+
+.clock.time-up {
+  font-size: min(16vw, 36vh);
+}
+
+.message {
+  position: absolute;
+  bottom: 8vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 4vw;
+  font-weight: 600;
+  color: #ffffff;
+  min-height: 1em;
+}
+
+.message.flash {
+  animation: pulse 1s steps(1, end) infinite alternate;
+}
+
+@keyframes pulse {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.next-up {
+  position: absolute;
+  bottom: 3vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 1.3vw;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: currentColor;
+}
+
+/* Colour thresholds: white -> amber (2 min) -> coral (last 20%) -> true red (last 10%) */
+body.tone-normal .clock,
+body.tone-normal .progress-fill { color: #ffffff; }
+
+body.tone-warn .clock,
+body.tone-warn .progress-fill { color: #ffc24b; }
+
+body.tone-danger .clock,
+body.tone-danger .progress-fill { color: #ff6b4a; }
+
+body.tone-critical .clock,
+body.tone-critical .progress-fill { color: #ff3b30; }
+
+/* Overrun inverts the field: deep red background, white digits, slow breathe.
+   Breathe, never strobe — a strobing wall behind the platform is a real risk
+   for photosensitive people in the congregation. */
+body.tone-over {
+  background-color: #7a0f12;
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+body.tone-over .clock {
+  color: #ffffff;
+}
+
+body.tone-over .progress-fill {
+  color: #ffffff;
+}
+
+@keyframes breathe {
+  0%, 100% { background-color: #7a0f12; }
+  50% { background-color: #a5161a; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.tone-over { animation: none; background-color: #7a0f12; }
+  .message.flash { animation: none; opacity: 1; }
+}
+
+.blackout {
+  position: fixed;
+  inset: 0;
+  background: #000000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.blackout.on {
+  opacity: 1;
+}
