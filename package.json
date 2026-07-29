@@ -1,6 +1,6 @@
 {
   "name": "stagetimer",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Stage countdown timer for church services — control window + projector display window.",
   "main": "main.js",
   "author": {
@@ -40,13 +40,12 @@
     "publish": [
       {
         "provider": "github",
-        "draft": false
+        "releaseType": "release"
       }
     ],
     "mac": {
       "target": ["dmg", "zip"],
       "identity": null,
-      "arch": ["arm64", "x64"],
       "artifactName": "Stage-Timer-${arch}.${ext}"
     },
     "win": {
