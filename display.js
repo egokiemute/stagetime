@@ -16,12 +16,23 @@ window.api.onState((next) => {
 
 function repaint() {
   const now = Date.now();
-  const { ms } = readout(state, now);
-  const currentTone = tone(state, ms);
+  // Nothing configured yet — show a live current-time clock instead of a
+  // frozen countdown placeholder, so the screen is still meaningful if it's
+  // sent up before the operator has set anything.
+  const idleUntouched = state.status === 'idle' && !state.timerTouched;
 
-  const isTimeUp = currentTone === 'over';
+  const { ms } = readout(state, now);
+  const currentTone = idleUntouched ? 'normal' : tone(state, ms);
+
+  const isTimeUp = !idleUntouched && currentTone === 'over';
   clockEl.classList.toggle('time-up', isTimeUp);
-  clockEl.textContent = isTimeUp ? 'Time Up' : state.showClock ? formatTime(ms) : '';
+  clockEl.textContent = !state.showClock
+    ? ''
+    : idleUntouched
+      ? currentHHMMSS(new Date(now))
+      : isTimeUp
+        ? 'Time Up'
+        : formatTime(ms);
   labelEl.textContent = state.label || '';
 
   if (state.message) {
@@ -32,7 +43,7 @@ function repaint() {
     messageEl.classList.remove('flash');
   }
 
-  progressFillEl.style.width = `${progress(state, ms) * 100}%`;
+  progressFillEl.style.width = `${idleUntouched ? 0 : progress(state, ms) * 100}%`;
 
   const showNext = state.showNextUp && state.nextLabel && !state.message && currentTone !== 'over';
   nextUpEl.textContent = showNext ? `Next up: ${state.nextLabel}` : '';

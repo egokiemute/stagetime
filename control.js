@@ -16,12 +16,14 @@ function loadPersisted() {
 
 function savePersisted() {
   const {
-    mode, durationMs, clockTarget, clockTargetTouched, label, warnSec, dangerSec, showClock, showNextUp
+    mode, durationMs, clockTarget, clockTargetTouched, timerTouched,
+    label, warnSec, dangerSec, showClock, showNextUp
   } = state;
   localStorage.setItem(
     PERSIST_KEY,
     JSON.stringify({
-      mode, durationMs, clockTarget, clockTargetTouched, label, warnSec, dangerSec, showClock, showNextUp
+      mode, durationMs, clockTarget, clockTargetTouched, timerTouched,
+      label, warnSec, dangerSec, showClock, showNextUp
     })
   );
 }
@@ -103,6 +105,7 @@ function reset() {
 
 function nudge(deltaMs) {
   if (state.mode === 'countup') return;
+  state.timerTouched = true;
   if (state.status === 'running') {
     state.endsAt += deltaMs;
   } else {
@@ -133,6 +136,7 @@ function setMode(mode) {
 
 function setPresetMinutes(min) {
   state.mode = 'duration';
+  state.timerTouched = true;
   state.durationMs = min * 60000;
   durationField.value = formatTime(state.durationMs);
   if (state.status !== 'running') {
@@ -193,7 +197,10 @@ const showDisplayBtn = document.getElementById('showDisplayBtn');
 const hideDisplayBtn = document.getElementById('hideDisplayBtn');
 
 document.querySelectorAll('.tab').forEach((tab) => {
-  tab.addEventListener('click', () => setMode(tab.dataset.mode));
+  tab.addEventListener('click', () => {
+    state.timerTouched = true;
+    setMode(tab.dataset.mode);
+  });
 });
 
 durationPresets.querySelectorAll('button').forEach((btn) => {
@@ -206,6 +213,7 @@ durationField.addEventListener('change', () => {
     durationField.value = formatTime(state.durationMs);
     return;
   }
+  state.timerTouched = true;
   state.durationMs = ms;
   if (state.status !== 'running') {
     state.frozenMs = ms;
@@ -224,6 +232,7 @@ clockField.addEventListener('change', () => {
   }
   state.clockTarget = val;
   state.clockTargetTouched = true;
+  state.timerTouched = true;
   if (state.status !== 'running') reset();
   else push();
 });
@@ -400,14 +409,19 @@ document.addEventListener('keydown', (e) => {
 // --- local preview repaint -------------------------------------------------------
 
 function repaint() {
+  const idleUntouched = state.status === 'idle' && !state.timerTouched;
   const { ms } = readout(state);
-  previewClock.textContent = tone(state, ms) === 'over' ? 'Time Up' : formatTime(ms);
+  previewClock.textContent = idleUntouched
+    ? currentHHMMSS()
+    : tone(state, ms) === 'over' ? 'Time Up' : formatTime(ms);
 
   const running = state.status === 'running';
   liveDot.classList.toggle('live', running);
   previewStatus.classList.toggle('live', running);
 
-  if (state.status === 'idle') {
+  if (idleUntouched) {
+    previewStatus.textContent = 'Current time — nothing set yet';
+  } else if (state.status === 'idle') {
     previewStatus.textContent = 'Idle';
   } else {
     const endsLabel =

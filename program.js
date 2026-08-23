@@ -224,6 +224,7 @@ function loadItem(i) {
   if (!item) return;
   state.program.activeIndex = i;
   state.mode = 'duration';
+  state.timerTouched = true;
   state.durationMs = item.plannedMs;
   state.label = item.name;
   state.nextLabel = nextItemName(i);

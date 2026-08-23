@@ -8,6 +8,8 @@ const DEFAULT_STATE = {
   durationMs: 300000,      // configured length
   clockTarget: '09:00',    // HH:MM[:SS] 24h, for 'clock' mode — inert fallback, see control.js
   clockTargetTouched: false, // true once the operator has manually set clockTarget
+  timerTouched: false,      // true once any duration/mode/program has been configured —
+                             // while false and idle, both windows show a live current-time clock
   endsAt: null,            // epoch ms — the source of truth while running
   startedAt: null,         // epoch ms — count-up mode
   frozenMs: 300000,        // held value while idle or paused
