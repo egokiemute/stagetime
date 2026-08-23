@@ -6,7 +6,8 @@ const DEFAULT_STATE = {
   mode: 'duration',        // 'duration' | 'clock' | 'countup'
   status: 'idle',          // 'idle' | 'running' | 'paused'
   durationMs: 300000,      // configured length
-  clockTarget: '09:00',    // HH:MM 24h, for 'clock' mode
+  clockTarget: '09:00',    // HH:MM[:SS] 24h, for 'clock' mode — inert fallback, see control.js
+  clockTargetTouched: false, // true once the operator has manually set clockTarget
   endsAt: null,            // epoch ms — the source of truth while running
   startedAt: null,         // epoch ms — count-up mode
   frozenMs: 300000,        // held value while idle or paused
@@ -72,19 +73,28 @@ function clockNow(date = new Date()) {
   return `${h}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 
-// Next epoch ms for a "HH:MM" 24h wall-clock target. If the target already
-// slipped by more than ~6 hours, roll to tomorrow; otherwise keep it today
-// so the operator sees overrun rather than a target that jumped a day ahead.
-function nextClockTarget(hhmm, now = new Date()) {
-  const [hh, mm] = hhmm.split(':').map(Number);
+// Next epoch ms for a "HH:MM" or "HH:MM:SS" 24h wall-clock target. If the
+// target already slipped by more than ~6 hours, roll to tomorrow; otherwise
+// keep it today so the operator sees overrun rather than a target that
+// jumped a day ahead.
+function nextClockTarget(hhmmss, now = new Date()) {
+  const [hh, mm, ss = 0] = hhmmss.split(':').map(Number);
   const target = new Date(now);
-  target.setHours(hh, mm, 0, 0);
+  target.setHours(hh, mm, ss, 0);
   const diff = now.getTime() - target.getTime();
   const SIX_HOURS = 6 * 60 * 60 * 1000;
   if (diff > SIX_HOURS) {
     target.setDate(target.getDate() + 1);
   }
   return target.getTime();
+}
+
+// "HH:MM:SS" for the current moment — used to default the "Start at" field
+// to a live-looking current time rather than a frozen placeholder whenever
+// the operator hasn't set a target themselves yet.
+function currentHHMMSS(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 function progress(state, ms) {

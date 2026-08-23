@@ -15,10 +15,14 @@ function loadPersisted() {
 }
 
 function savePersisted() {
-  const { mode, durationMs, clockTarget, label, warnSec, dangerSec, showClock, showNextUp } = state;
+  const {
+    mode, durationMs, clockTarget, clockTargetTouched, label, warnSec, dangerSec, showClock, showNextUp
+  } = state;
   localStorage.setItem(
     PERSIST_KEY,
-    JSON.stringify({ mode, durationMs, clockTarget, label, warnSec, dangerSec, showClock, showNextUp })
+    JSON.stringify({
+      mode, durationMs, clockTarget, clockTargetTouched, label, warnSec, dangerSec, showClock, showNextUp
+    })
   );
 }
 
@@ -28,6 +32,11 @@ state.endsAt = null;
 state.startedAt = null;
 state.frozenMs = state.mode === 'duration' ? state.durationMs : DEFAULT_STATE.frozenMs;
 state.totalMs = Math.max(1, state.frozenMs);
+// Until the operator explicitly sets a "Start at" target, default it to a
+// live current time rather than the frozen fallback in DEFAULT_STATE.
+if (!state.clockTargetTouched) {
+  state.clockTarget = currentHHMMSS();
+}
 // DEFAULT_STATE.program is a nested object — the spread above only shallow-copies
 // the reference, so without this, mutating state.program.items would corrupt the
 // shared module-level default.
@@ -112,6 +121,12 @@ function setMode(mode) {
   durationPresets.style.display = mode === 'duration' ? 'grid' : 'none';
   durationField.style.display = mode === 'duration' ? 'block' : 'none';
   clockField.style.display = mode === 'clock' ? 'block' : 'none';
+  // Switching into "At" mode without ever having set a target should show
+  // right now, not whatever moment the app happened to launch.
+  if (mode === 'clock' && !state.clockTargetTouched) {
+    state.clockTarget = currentHHMMSS();
+    clockField.value = state.clockTarget;
+  }
   if (state.status === 'idle') reset();
   else push();
 }
@@ -203,11 +218,12 @@ durationField.addEventListener('change', () => {
 clockField.value = state.clockTarget;
 clockField.addEventListener('change', () => {
   const val = clockField.value.trim();
-  if (!/^\d{1,2}:\d{2}$/.test(val)) {
+  if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(val)) {
     clockField.value = state.clockTarget;
     return;
   }
   state.clockTarget = val;
+  state.clockTargetTouched = true;
   if (state.status !== 'running') reset();
   else push();
 });
