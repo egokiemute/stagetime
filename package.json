@@ -1,6 +1,6 @@
 {
   "name": "stagetimer",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Stage countdown timer for church services — control window + projector display window.",
   "main": "main.js",
   "author": {
