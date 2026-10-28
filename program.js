@@ -68,10 +68,12 @@ function splitNameAndDuration(line) {
 
 const FLEXIBLE_NAME_RE = /praise|worship|offering|announcement|testimon/i;
 
+// Saved programs carry ids from earlier sessions, so a bare per-launch counter
+// would hand out ids that already exist in a loaded program.
 let itemCounter = 0;
 function nextItemId() {
   itemCounter += 1;
-  return 'itm_' + itemCounter;
+  return 'itm_' + Date.now().toString(36) + '_' + itemCounter;
 }
 
 function makeItem(name, plannedMs, extra) {
@@ -417,10 +419,84 @@ function applyRecoverTime() {
   push();
 }
 
+// --- editing -------------------------------------------------------
+
+const MAX_ITEM_MS = 24 * 3600000;
+
+// Items before and including the running one are history (or on stage right
+// now): they can be renamed and retimed, but never removed or reordered.
+function lockedCount() {
+  const p = state.program;
+  return p.activeIndex < 0 ? 0 : Math.min(p.activeIndex + 1, p.items.length);
+}
+
+// Accepts drafts from the edit dialog and from phones, so treat every field
+// as untrusted.
+function sanitizeDraft(draftItems) {
+  if (!Array.isArray(draftItems) || draftItems.length > 200) return null;
+  const out = [];
+  for (const d of draftItems) {
+    if (!d || typeof d !== 'object') return null;
+    const plannedMs = Math.round(Number(d.plannedMs));
+    if (!Number.isFinite(plannedMs)) return null;
+    out.push({
+      id: typeof d.id === 'string' ? d.id : null,
+      name: String(d.name ?? '').trim().slice(0, 80) || 'Untitled',
+      plannedMs: Math.min(MAX_ITEM_MS, Math.max(1000, plannedMs))
+    });
+  }
+  return out;
+}
+
+function applyProgramEdits(draftItems) {
+  const clean = sanitizeDraft(draftItems);
+  if (!clean) return false;
+  const p = state.program;
+  const locked = lockedCount();
+  for (let k = 0; k < locked; k++) {
+    if (!clean[k] || clean[k].id !== p.items[k].id) return false;
+  }
+
+  const byId = new Map(p.items.map((it) => [it.id, it]));
+  const seen = new Set();
+  const items = clean.map((d) => {
+    const existing = d.id && !seen.has(d.id) ? byId.get(d.id) : null;
+    if (d.id) seen.add(d.id);
+    if (existing) return { ...existing, name: d.name, plannedMs: d.plannedMs };
+    return makeItem(d.name, d.plannedMs);
+  });
+
+  const wasEnded = p.activeIndex >= p.items.length;
+  const active = p.activeIndex >= 0 && !wasEnded ? p.items[p.activeIndex] : null;
+  p.items = items;
+  if (wasEnded) p.activeIndex = items.length;
+
+  if (active) {
+    const updated = items[p.activeIndex];
+    const delta = updated.plannedMs - active.plannedMs;
+    state.label = updated.name;
+    state.nextLabel = nextItemName(p.activeIndex);
+    // Retiming the running segment shifts its clock rather than restarting it.
+    if (delta && state.mode === 'duration') {
+      state.durationMs = updated.plannedMs;
+      state.totalMs = Math.max(1, state.totalMs + delta);
+      if (state.status === 'running') state.endsAt += delta;
+      else state.frozenMs = Math.max(0, state.frozenMs + delta);
+    }
+  }
+
+  programDirty = true;
+  push();
+  return true;
+}
+
 // --- saved programs + export/import -------------------------------------------------------
 
 const PROGRAMS_KEY = 'stagetimer.programs';
 const LAST_PROGRAM_KEY = 'stagetimer.lastProgram';
+
+// True while the loaded program differs from its saved copy (or was never saved).
+let programDirty = false;
 
 function loadSavedPrograms() {
   try {
@@ -442,14 +518,48 @@ function stripActuals(it) {
   };
 }
 
+function writeSavedPrograms(all) {
+  localStorage.setItem(PROGRAMS_KEY, JSON.stringify(all));
+}
+
 function saveProgramAs(name) {
   if (!name) return;
   const all = loadSavedPrograms();
   all[name] = { name, items: state.program.items.map(stripActuals) };
-  localStorage.setItem(PROGRAMS_KEY, JSON.stringify(all));
+  writeSavedPrograms(all);
   localStorage.setItem(LAST_PROGRAM_KEY, name);
   state.program.name = name;
+  programDirty = false;
   push();
+  populateSavedProgramsSelect();
+}
+
+function renameSavedProgram(oldName, newName) {
+  const all = loadSavedPrograms();
+  if (!all[oldName] || !newName || all[newName]) return false;
+  const renamed = {};
+  Object.keys(all).forEach((key) => {
+    if (key === oldName) renamed[newName] = { ...all[oldName], name: newName };
+    else renamed[key] = all[key];
+  });
+  writeSavedPrograms(renamed);
+  if (localStorage.getItem(LAST_PROGRAM_KEY) === oldName) localStorage.setItem(LAST_PROGRAM_KEY, newName);
+  if (state.program.name === oldName) {
+    state.program.name = newName;
+    push();
+  }
+  populateSavedProgramsSelect();
+  return true;
+}
+
+// The loaded program stays loaded — it just no longer has a saved copy.
+function deleteSavedProgram(name) {
+  const all = loadSavedPrograms();
+  if (!all[name]) return;
+  delete all[name];
+  writeSavedPrograms(all);
+  if (localStorage.getItem(LAST_PROGRAM_KEY) === name) localStorage.removeItem(LAST_PROGRAM_KEY);
+  if (state.program.name === name) programDirty = true;
   populateSavedProgramsSelect();
 }
 
@@ -466,12 +576,15 @@ function loadProgramByName(name) {
   state.label = '';
   state.nextLabel = '';
   localStorage.setItem(LAST_PROGRAM_KEY, name);
+  programDirty = false;
   push();
 }
 
+// A pasted program is a new program, so it starts unnamed — otherwise Save
+// would quietly overwrite whatever saved program was loaded before.
 function setItemsFromParsed(items) {
   state.program = {
-    name: state.program.name,
+    name: '',
     items,
     activeIndex: -1,
     autoStartOnAdvance: state.program.autoStartOnAdvance,
@@ -479,6 +592,7 @@ function setItemsFromParsed(items) {
   };
   state.label = '';
   state.nextLabel = '';
+  programDirty = true;
   push();
 }
 
@@ -499,7 +613,7 @@ function importPrograms(file) {
       const incoming = JSON.parse(reader.result);
       const all = loadSavedPrograms();
       Object.assign(all, incoming);
-      localStorage.setItem(PROGRAMS_KEY, JSON.stringify(all));
+      writeSavedPrograms(all);
       populateSavedProgramsSelect();
     } catch {
       // malformed file — ignore rather than corrupt existing saved programs
@@ -584,7 +698,8 @@ function updateRecoverButton() {
 
 function renderProgramPanel() {
   const p = state.program;
-  railProgramName.textContent = p.name || 'No program loaded';
+  const baseName = p.name || (p.items.length ? 'Untitled program' : 'No program loaded');
+  railProgramName.textContent = programDirty && p.items.length ? `${baseName} • unsaved` : baseName;
   titlebarProgramName.textContent = p.name || '';
 
   const preview = recoverPreviewActive ? computeRecoverPreview() : null;
@@ -632,6 +747,8 @@ function renderProgramPanel() {
   });
 
   prevItemBtn.disabled = p.activeIndex <= 0;
+  saveProgramBtn.disabled = !p.items.length;
+  manageSaveAsBtn.disabled = !p.items.length;
   nextItemBtn.disabled = !p.items.length;
   copyReportBtn.disabled = !p.items.some((it) => it.actualStartedAt);
 
@@ -752,6 +869,249 @@ function updatePasteSummary() {
   pasteApplyBtn.disabled = false;
 }
 
+// --- DOM: edit dialog -------------------------------------------------------
+
+const editProgramBtn = document.getElementById('editProgramBtn');
+const editDialog = document.getElementById('editDialog');
+const editList = document.getElementById('editList');
+const editAddBtn = document.getElementById('editAddBtn');
+const editSummary = document.getElementById('editSummary');
+const editCancelBtn = document.getElementById('editCancelBtn');
+const editApplyBtn = document.getElementById('editApplyBtn');
+
+// Nothing touches state.program until Apply — the dialog edits this copy.
+let editDraft = [];
+
+function iconButton(label, title, enabled, onClick) {
+  const btn = document.createElement('button');
+  btn.className = 'icon-btn';
+  btn.textContent = label;
+  btn.title = title;
+  btn.disabled = !enabled;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function moveDraftItem(from, to) {
+  const [item] = editDraft.splice(from, 1);
+  editDraft.splice(to, 0, item);
+  renderEditList();
+}
+
+function renderEditList() {
+  const locked = lockedCount();
+  editList.innerHTML = '';
+  editDraft.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'paste-row edit-row';
+    if (i < locked) row.classList.add('edit-row-locked');
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = item.name;
+    nameInput.maxLength = 80;
+    nameInput.addEventListener('input', () => {
+      item.name = nameInput.value;
+    });
+
+    const durInput = document.createElement('input');
+    durInput.type = 'text';
+    durInput.value = formatTime(item.plannedMs);
+    durInput.addEventListener('change', () => {
+      const ms = parseDurationText(durInput.value);
+      if (ms !== null && ms > 0) item.plannedMs = ms;
+      durInput.value = formatTime(item.plannedMs);
+      updateEditSummary();
+    });
+
+    const movable = i >= locked;
+    row.append(
+      nameInput,
+      durInput,
+      iconButton('↑', 'Move up', movable && i - 1 >= locked, () => moveDraftItem(i, i - 1)),
+      iconButton('↓', 'Move down', movable && i + 1 < editDraft.length, () => moveDraftItem(i, i + 1)),
+      iconButton('×', movable ? 'Remove' : 'Already started — can’t remove', movable, () => {
+        editDraft.splice(i, 1);
+        renderEditList();
+      })
+    );
+    editList.appendChild(row);
+  });
+  updateEditSummary();
+}
+
+function updateEditSummary() {
+  const totalMs = editDraft.reduce((s, it) => s + it.plannedMs, 0);
+  editSummary.textContent = editDraft.length
+    ? `${editDraft.length} segments · ${formatHoursMin(Math.round(totalMs / 60000))} total`
+    : 'No segments';
+}
+
+editProgramBtn.addEventListener('click', () => {
+  editDraft = state.program.items.map((it) => ({ id: it.id, name: it.name, plannedMs: it.plannedMs }));
+  renderEditList();
+  editDialog.showModal();
+});
+
+editAddBtn.addEventListener('click', () => {
+  editDraft.push({ id: null, name: 'New segment', plannedMs: 5 * 60000 });
+  renderEditList();
+  const inputs = editList.querySelectorAll('.edit-row:last-child input');
+  if (inputs[0]) {
+    inputs[0].focus();
+    inputs[0].select();
+  }
+});
+
+editCancelBtn.addEventListener('click', () => editDialog.close());
+
+editApplyBtn.addEventListener('click', () => {
+  applyProgramEdits(editDraft);
+  editDialog.close();
+});
+
+// --- DOM: name dialog -------------------------------------------------------
+// Electron doesn't implement window.prompt(), so naming goes through this.
+
+const nameDialog = document.getElementById('nameDialog');
+const nameDialogTitle = document.getElementById('nameDialogTitle');
+const nameDialogInput = document.getElementById('nameDialogInput');
+const nameDialogError = document.getElementById('nameDialogError');
+const nameDialogOkBtn = document.getElementById('nameDialogOkBtn');
+const nameDialogCancelBtn = document.getElementById('nameDialogCancelBtn');
+
+let nameDialogPending = null;
+
+// Resolves with the trimmed name, or null if cancelled. `validate` returns an
+// error string to keep the dialog open, or '' to accept.
+function askName(title, initial, validate) {
+  nameDialogTitle.textContent = title;
+  nameDialogInput.value = initial || '';
+  nameDialogError.textContent = '';
+  return new Promise((resolve) => {
+    nameDialogPending = { resolve, validate };
+    nameDialog.showModal();
+    nameDialogInput.select();
+  });
+}
+
+function settleNameDialog(value) {
+  const pending = nameDialogPending;
+  nameDialogPending = null;
+  if (nameDialog.open) nameDialog.close();
+  if (pending) pending.resolve(value);
+}
+
+function submitNameDialog() {
+  const name = nameDialogInput.value.trim();
+  if (!name || !nameDialogPending) return;
+  const error = nameDialogPending.validate ? nameDialogPending.validate(name) : '';
+  if (error) {
+    nameDialogError.textContent = error;
+    return;
+  }
+  settleNameDialog(name);
+}
+
+nameDialogOkBtn.addEventListener('click', submitNameDialog);
+nameDialogCancelBtn.addEventListener('click', () => settleNameDialog(null));
+nameDialogInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitNameDialog();
+});
+// Escape closes a <dialog> natively — treat it as Cancel.
+nameDialog.addEventListener('close', () => settleNameDialog(null));
+
+// Saving under a name that's already taken replaces it, but only after the
+// operator has been told once.
+function askSaveName(initial) {
+  let warnedFor = null;
+  return askName('Save program as', initial, (name) => {
+    if (loadSavedPrograms()[name] && name !== state.program.name && warnedFor !== name) {
+      warnedFor = name;
+      return `"${name}" already exists — press OK again to replace it.`;
+    }
+    return '';
+  });
+}
+
+async function saveCurrentAsNew() {
+  if (!state.program.items.length) return false;
+  const name = await askSaveName(state.program.name ? `${state.program.name} copy` : '');
+  if (!name) return false;
+  saveProgramAs(name);
+  return true;
+}
+
+// --- DOM: manage dialog -------------------------------------------------------
+
+const manageProgramsBtn = document.getElementById('manageProgramsBtn');
+const manageDialog = document.getElementById('manageDialog');
+const manageList = document.getElementById('manageList');
+const manageSaveAsBtn = document.getElementById('manageSaveAsBtn');
+const manageCloseBtn = document.getElementById('manageCloseBtn');
+
+function renderManageList() {
+  const all = loadSavedPrograms();
+  const names = Object.keys(all).sort();
+  manageList.innerHTML = '';
+  if (!names.length) {
+    manageList.textContent = 'No saved programs yet.';
+    return;
+  }
+  names.forEach((name) => {
+    const row = document.createElement('div');
+    row.className = 'manage-row';
+
+    const label = document.createElement('span');
+    label.className = 'manage-row-name';
+    const count = (all[name].items || []).length;
+    label.textContent = `${name} · ${count} segments${name === state.program.name ? ' (loaded)' : ''}`;
+
+    const loadBtn = document.createElement('button');
+    loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', () => {
+      loadProgramByName(name);
+      manageDialog.close();
+    });
+
+    const renameBtn = document.createElement('button');
+    renameBtn.textContent = 'Rename';
+    renameBtn.addEventListener('click', async () => {
+      const newName = await askName('Rename program', name, (candidate) =>
+        candidate !== name && loadSavedPrograms()[candidate] ? `"${candidate}" already exists.` : ''
+      );
+      if (newName && newName !== name) renameSavedProgram(name, newName);
+      renderManageList();
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => {
+      if (!deleteBtn.classList.contains('on')) {
+        deleteBtn.textContent = 'Confirm delete';
+        deleteBtn.classList.add('on');
+        return;
+      }
+      deleteSavedProgram(name);
+      renderManageList();
+    });
+
+    row.append(label, loadBtn, renameBtn, deleteBtn);
+    manageList.appendChild(row);
+  });
+}
+
+manageProgramsBtn.addEventListener('click', () => {
+  renderManageList();
+  manageDialog.showModal();
+});
+
+manageSaveAsBtn.addEventListener('click', async () => {
+  if (await saveCurrentAsNew()) renderManageList();
+});
+
+manageCloseBtn.addEventListener('click', () => manageDialog.close());
+
 // --- wiring -------------------------------------------------------
 
 function populateSavedProgramsSelect() {
@@ -788,9 +1148,26 @@ savedProgramsSelect.addEventListener('change', () => {
   savedProgramsSelect.value = '';
 });
 
-saveProgramBtn.addEventListener('click', () => {
-  const name = window.prompt('Save this program as:', state.program.name || '');
-  if (name && name.trim()) saveProgramAs(name.trim());
+function flashSaved() {
+  saveProgramBtn.textContent = 'Saved ✓';
+  setTimeout(() => {
+    saveProgramBtn.textContent = 'Save';
+  }, 1500);
+}
+
+// A program that already has a name is updated in place; only an unnamed one
+// asks for a name.
+saveProgramBtn.addEventListener('click', async () => {
+  if (!state.program.items.length) return;
+  if (state.program.name) {
+    saveProgramAs(state.program.name);
+    flashSaved();
+    return;
+  }
+  const name = await askSaveName('');
+  if (!name) return;
+  saveProgramAs(name);
+  flashSaved();
 });
 
 exportProgramBtn.addEventListener('click', exportPrograms);

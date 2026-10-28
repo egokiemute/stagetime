@@ -99,6 +99,20 @@ function currentHHMMSS(date = new Date()) {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+// "5" is minutes, "5:30" is m:ss, "1:05:00" is h:mm:ss. Used by the control
+// window and the phone remote alike.
+function parseDurationText(text) {
+  const t = text.trim();
+  if (!t) return null;
+  const parts = t.split(':').map(Number);
+  if (parts.some((n) => Number.isNaN(n)) || parts.length > 3) return null;
+  let totalSec;
+  if (parts.length === 1) totalSec = parts[0] * 60;
+  else if (parts.length === 2) totalSec = parts[0] * 60 + parts[1];
+  else totalSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return Math.max(0, totalSec * 1000);
+}
+
 function progress(state, ms) {
   if (state.mode === 'countup') return 0;
   const total = state.totalMs || 1;

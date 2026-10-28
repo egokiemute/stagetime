@@ -52,9 +52,12 @@ function toDisplayState(state) {
   return rest;
 }
 
+// Phones get the full state, program included — they show and edit the
+// segment list. Main only fans it out while phone control is on.
 function push() {
   savePersisted();
   window.api.send('state', toDisplayState(state));
+  window.api.sendRemoteState(state);
 }
 
 // --- transport -------------------------------------------------------
@@ -146,37 +149,141 @@ function setPresetMinutes(min) {
   push();
 }
 
-function parseDurationText(text) {
-  const t = text.trim();
-  if (!t) return null;
-  const parts = t.split(':').map(Number);
-  if (parts.some((n) => Number.isNaN(n)) || parts.length > 3) return null;
-  let totalSec;
-  if (parts.length === 1) totalSec = parts[0] * 60;
-  else if (parts.length === 2) totalSec = parts[0] * 60 + parts[1];
-  else totalSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return Math.max(0, totalSec * 1000);
+function setDurationMs(ms) {
+  state.timerTouched = true;
+  state.durationMs = ms;
+  if (state.status !== 'running') {
+    state.frozenMs = ms;
+    state.totalMs = Math.max(1, ms);
+  }
+  durationField.value = formatTime(ms);
+  push();
 }
 
 // --- DOM wiring -------------------------------------------------------
 
+// Set before anything paints: on macOS the window is transparent so the
+// sidebar can show the native vibrancy material (see main.js).
+if (window.api.platform === 'darwin') document.documentElement.classList.add('vibrant');
+
+const hero = document.getElementById('hero');
+const heroLabel = document.getElementById('heroLabel');
+const heroProgress = document.getElementById('heroProgress');
 const previewClock = document.getElementById('previewClock');
 const previewStatus = document.getElementById('previewStatus');
 const liveDot = document.getElementById('liveDot');
 
+// --- updates -------------------------------------------------------
+
 const updateBanner = document.getElementById('updateBanner');
 const updateBannerText = document.getElementById('updateBannerText');
+const whatsNewBtn = document.getElementById('whatsNewBtn');
 const installUpdateBtn = document.getElementById('installUpdateBtn');
+const updateDialog = document.getElementById('updateDialog');
+const updateDialogTitle = document.getElementById('updateDialogTitle');
+const updateDialogSub = document.getElementById('updateDialogSub');
+const updateNotes = document.getElementById('updateNotes');
+const updateLaterBtn = document.getElementById('updateLaterBtn');
+const updateActionBtn = document.getElementById('updateActionBtn');
 
-window.api.onUpdateReady((version) => {
-  updateBannerText.textContent = `Update v${version} ready —`;
+const UPDATE_SEEN_KEY = 'stagetimer.updateSeen';
+let currentUpdate = null;
+
+// Release notes arrive as HTML from GitHub. Rebuild them from a short list of
+// formatting tags, copying text only — never inject the HTML itself.
+const NOTE_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'P', 'UL', 'OL', 'LI', 'STRONG', 'B', 'EM', 'I', 'CODE', 'BR']);
+
+function copySafeNodes(src, dest) {
+  src.childNodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      dest.appendChild(document.createTextNode(node.textContent));
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      if (NOTE_TAGS.has(node.tagName)) {
+        const el = document.createElement(node.tagName.toLowerCase());
+        copySafeNodes(node, el);
+        dest.appendChild(el);
+      } else {
+        copySafeNodes(node, dest); // unwrap links, divs and anything else
+      }
+    }
+  });
+}
+
+function renderReleaseNotes(notes) {
+  updateNotes.innerHTML = '';
+  updateNotes.classList.toggle('plain', !/<[a-z]/i.test(notes));
+  if (!notes.trim()) {
+    updateNotes.textContent = 'No release notes were published for this version.';
+  } else if (updateNotes.classList.contains('plain')) {
+    updateNotes.textContent = notes;
+  } else {
+    copySafeNodes(new DOMParser().parseFromString(notes, 'text/html').body, updateNotes);
+  }
+}
+
+function updateActionLabel(u) {
+  if (u.stage === 'ready') return 'Restart & update';
+  if (u.stage === 'available') return 'Download';
+  return 'Downloading…';
+}
+
+function showUpdate(u) {
+  if (!u) return;
+  currentUpdate = u;
   updateBanner.style.display = 'flex';
-});
+  updateBannerText.textContent =
+    u.stage === 'ready' ? `v${u.version} ready` : u.stage === 'available' ? `v${u.version} available` : `Downloading v${u.version}…`;
+  installUpdateBtn.style.display = u.stage === 'downloading' ? 'none' : '';
+  installUpdateBtn.textContent = updateActionLabel(u);
 
-// Only ever fires on this explicit click — never automatically — since this
-// app runs live during a service and a forced restart mid-timer would be a
-// real incident.
-installUpdateBtn.addEventListener('click', () => window.api.installUpdate());
+  updateDialogTitle.textContent = `What’s new in Stage Timer ${u.version}`;
+  updateDialogSub.textContent =
+    u.stage === 'ready'
+      ? 'The update is downloaded. It installs when you restart — nothing changes until you choose to.'
+      : u.stage === 'available'
+        ? 'Download the new version and install it over this one. Your saved programs are kept.'
+        : 'The update is downloading in the background. You can keep working.';
+  updateActionBtn.textContent = updateActionLabel(u);
+  updateActionBtn.disabled = u.stage === 'downloading';
+  renderReleaseNotes(u.notes || '');
+
+  // Pop the notes up once per version, and only while nothing is running —
+  // never cover the controls mid-service. The banner stays either way.
+  let seen = null;
+  try {
+    seen = localStorage.getItem(UPDATE_SEEN_KEY);
+  } catch {
+    // storage unavailable — fall through and show it
+  }
+  const quiet = state.status === 'idle' && state.program.activeIndex < 0;
+  if (u.stage !== 'downloading' && seen !== u.version && quiet && !document.querySelector('dialog[open]')) {
+    try {
+      localStorage.setItem(UPDATE_SEEN_KEY, u.version);
+    } catch {
+      // storage unavailable — it'll just show again next launch
+    }
+    updateDialog.showModal();
+  }
+}
+
+// Installing only ever happens on an explicit click — never automatically —
+// since this app runs live during a service and a forced restart mid-timer
+// would be a real incident.
+function runUpdateAction() {
+  if (!currentUpdate) return;
+  if (currentUpdate.stage === 'ready') window.api.installUpdate();
+  else if (currentUpdate.stage === 'available') window.api.openUpdatePage();
+}
+
+window.api.onUpdateState(showUpdate);
+window.api.getUpdateState().then(showUpdate);
+whatsNewBtn.addEventListener('click', () => updateDialog.showModal());
+installUpdateBtn.addEventListener('click', runUpdateAction);
+updateActionBtn.addEventListener('click', () => {
+  updateDialog.close();
+  runUpdateAction();
+});
+updateLaterBtn.addEventListener('click', () => updateDialog.close());
 
 const durationPresets = document.getElementById('durationPresets');
 const durationField = document.getElementById('durationField');
@@ -213,14 +320,7 @@ durationField.addEventListener('change', () => {
     durationField.value = formatTime(state.durationMs);
     return;
   }
-  state.timerTouched = true;
-  state.durationMs = ms;
-  if (state.status !== 'running') {
-    state.frozenMs = ms;
-    state.totalMs = Math.max(1, ms);
-  }
-  durationField.value = formatTime(ms);
-  push();
+  setDurationMs(ms);
 });
 
 clockField.value = state.clockTarget;
@@ -262,11 +362,15 @@ function updateMessageButtons() {
 
 customMessage.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && customMessage.value.trim()) {
-    state.message = customMessage.value.trim();
-    updateMessageButtons();
-    push();
+    sendMessage(customMessage.value.trim());
   }
 });
+
+function sendMessage(text) {
+  state.message = text;
+  updateMessageButtons();
+  push();
+}
 
 function clearMessage() {
   state.message = '';
@@ -350,11 +454,109 @@ window.api.screenCount().then((count) => {
   moveScreenBtn.disabled = count <= 1;
 });
 
-// --- keyboard, ignored while typing in an input -------------------------------------------------------
+// --- phone control -------------------------------------------------------
+// Commands arrive already filtered to a known type by remote.js; arguments
+// are still checked here, since this is where they touch state. Start and
+// Next run directly rather than through withDisplayReady, so a phone never
+// pops the screen picker up on the operator's laptop.
+
+const MODES = ['duration', 'clock', 'countup'];
+const HOUR_MS = 3600000;
+
+function isFiniteNumber(n) {
+  return typeof n === 'number' && Number.isFinite(n);
+}
+
+function handleRemoteCommand(cmd) {
+  switch (cmd.type) {
+    case 'toggle':
+      if (state.status === 'running') pause();
+      else start();
+      break;
+    case 'reset':
+      reset();
+      break;
+    case 'nudge':
+      if (isFiniteNumber(cmd.ms) && Math.abs(cmd.ms) <= HOUR_MS) nudge(cmd.ms);
+      break;
+    case 'setDuration':
+      if (isFiniteNumber(cmd.ms) && cmd.ms > 0 && cmd.ms <= 24 * HOUR_MS) {
+        if (state.mode !== 'duration') setMode('duration');
+        setDurationMs(Math.round(cmd.ms));
+      }
+      break;
+    case 'setMode':
+      if (MODES.includes(cmd.mode)) {
+        state.timerTouched = true;
+        setMode(cmd.mode);
+      }
+      break;
+    case 'next':
+      advance(1);
+      break;
+    case 'previous':
+      previousItem();
+      break;
+    case 'jump':
+      if (Number.isInteger(cmd.index)) jumpTo(cmd.index);
+      break;
+    case 'editProgram':
+      applyProgramEdits(cmd.items);
+      break;
+    case 'message':
+      if (typeof cmd.text === 'string' && cmd.text.trim()) sendMessage(cmd.text.trim().slice(0, 200));
+      break;
+    case 'clearMessage':
+      clearMessage();
+      break;
+    default:
+      break;
+  }
+}
+
+window.api.onRemoteCommand(handleRemoteCommand);
+
+const remoteCheckbox = document.getElementById('remoteCheckbox');
+const remotePanel = document.getElementById('remotePanel');
+const remoteQr = document.getElementById('remoteQr');
+const remoteUrl = document.getElementById('remoteUrl');
+const remotePin = document.getElementById('remotePin');
+const remoteStatus = document.getElementById('remoteStatus');
+const remoteError = document.getElementById('remoteError');
+
+// Deliberately not persisted: phone control is off on every launch.
+remoteCheckbox.addEventListener('change', async () => {
+  remoteError.textContent = '';
+  if (!remoteCheckbox.checked) {
+    await window.api.remoteStop();
+    remotePanel.style.display = 'none';
+    return;
+  }
+  const result = await window.api.remoteStart();
+  if (result.error) {
+    remoteCheckbox.checked = false;
+    remoteError.textContent = result.error;
+    return;
+  }
+  remoteQr.src = result.qrDataUrl;
+  remoteUrl.textContent = result.url;
+  remotePin.textContent = result.pin;
+  remotePanel.style.display = 'flex';
+  push(); // give the server a snapshot to hand the first phone
+});
+
+window.api.onRemoteStatus((count) => {
+  remoteStatus.textContent =
+    count === 0 ? 'No phones connected' : `${count} phone${count === 1 ? '' : 's'} connected`;
+  remoteStatus.classList.toggle('connected', count > 0);
+});
+
+// --- keyboard, ignored while typing in an input or with a dialog open -------------------------------------------------------
 
 document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (document.querySelector('dialog[open]')) return;
 
   switch (e.code) {
     case 'Space':
@@ -416,6 +618,11 @@ function repaint() {
     : tone(state, ms) === 'over' ? 'Time Up' : formatTime(ms);
 
   const running = state.status === 'running';
+  // The hero tints with the same tone scale the stage uses; idle stays neutral.
+  hero.dataset.tone = state.status === 'idle' ? 'idle' : tone(state, ms);
+  heroProgress.style.transform = `scaleX(${state.status === 'idle' ? 0 : progress(state, ms)})`;
+  heroLabel.textContent = state.label || '';
+  transportBtn.classList.toggle('is-running', running);
   liveDot.classList.toggle('live', running);
   previewStatus.classList.toggle('live', running);
 

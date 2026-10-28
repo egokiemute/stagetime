@@ -55,6 +55,26 @@ available, a small banner appears in the Control window title bar —
 clicking **Restart & update** installs it. It never restarts on its own,
 so an update landing mid-service won't interrupt anything running.
 
+## Phone control
+
+Anyone on the same Wi-Fi as the control laptop can run the timer from their
+phone: start/pause, nudge, set a length, step through or edit the program, and
+send stage messages.
+
+1. In the Control window's left rail, tick **Allow phone control**.
+2. Scan the QR code (or type the URL shown under it) on a phone connected to
+   the same network.
+3. Enter the 4-digit PIN shown on the laptop.
+
+Phone control is off every time the app launches, and the PIN changes every
+time it's switched on. Unticking it disconnects every phone immediately.
+
+The first time you turn it on, macOS or Windows may ask whether Stage Timer can
+accept incoming network connections. Allow it, or phones won't be able to
+connect. Some guest or public Wi-Fi networks block devices from reaching each
+other ("client isolation"); on those, use a normal network or a phone hotspot
+instead.
+
 ## Running from source
 
 Requires [Node.js](https://nodejs.org).

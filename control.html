@@ -6,131 +6,194 @@
   <link rel="stylesheet" href="control.css" />
 </head>
 <body>
-  <header class="titlebar">
-    <span class="dot" id="liveDot"></span>
-    <span>Stage Timer</span>
-    <span class="titlebar-program" id="titlebarProgramName"></span>
-    <div class="update-banner" id="updateBanner" style="display:none">
-      <span id="updateBannerText"></span>
-      <button id="installUpdateBtn">Restart &amp; update</button>
-    </div>
-  </header>
+  <div class="app">
+    <!-- Sidebar: the run of service ------------------------------------------------ -->
+    <aside class="sidebar">
+      <div class="sidebar-drag"></div>
 
-  <section class="preview">
-    <div class="preview-clock" id="previewClock">5:00</div>
-    <div class="preview-status" id="previewStatus">Idle</div>
-    <div class="preview-drift" id="previewDrift"></div>
-  </section>
+      <div class="sidebar-head">
+        <div class="eyebrow">Run of service</div>
+        <div class="program-name" id="programName">No program loaded</div>
+        <div class="segmented-actions">
+          <button id="pasteProgramBtn" data-icon="paste" title="Paste a service order">Paste</button>
+          <button id="editProgramBtn" data-icon="edit" title="Add, remove, rename or retime segments">Edit</button>
+          <button id="saveProgramBtn" data-icon="save" title="Save this program">Save</button>
+        </div>
+      </div>
 
-  <div class="shell">
-    <aside class="rail">
-      <h2 class="eyebrow">Run of service</h2>
-      <div class="program-name" id="programName">No program loaded</div>
       <div class="program-list" id="programList"></div>
 
-      <div class="transport-row">
-        <button id="prevItemBtn" title="Shortcut: P">◀ Previous</button>
-        <button id="nextItemBtn" title="Shortcut: N">Next ▶</button>
-      </div>
-      <div id="recoverRow" class="transport-row" style="display:none">
+      <div id="recoverRow" class="recover-row" style="display:none">
         <button id="recoverBtn"></button>
       </div>
-      <div class="transport-row">
-        <button id="pasteProgramBtn">Paste program</button>
-        <button id="saveProgramBtn">Save</button>
+
+      <div class="segment-nav">
+        <button id="prevItemBtn" data-icon="prev" title="Previous segment (P)">Previous</button>
+        <button id="nextItemBtn" class="primary" data-icon-after="next" title="Next segment (N)">Next</button>
       </div>
-      <select id="savedProgramsSelect" class="field">
-        <option value="">Saved programs…</option>
-      </select>
-      <div class="transport-row">
-        <button id="exportProgramBtn">Export JSON</button>
-        <button id="importProgramBtn">Import JSON</button>
+
+      <div class="sidebar-foot">
+        <details class="group">
+          <summary>Library</summary>
+          <div class="group-body">
+            <div class="saved-row">
+              <select id="savedProgramsSelect" class="field">
+                <option value="">Saved programs…</option>
+              </select>
+              <button id="manageProgramsBtn">Manage…</button>
+            </div>
+            <div class="button-pair">
+              <button id="exportProgramBtn">Export JSON</button>
+              <button id="importProgramBtn">Import JSON</button>
+            </div>
+            <input type="file" id="importProgramInput" accept="application/json" style="display:none" />
+            <button id="copyReportBtn" data-icon="report" class="wide">Copy report</button>
+            <label class="switch-row">
+              <span>Show “next up” on stage</span>
+              <input type="checkbox" class="switch" id="showNextUpCheckbox" checked />
+            </label>
+          </div>
+        </details>
+
+        <div class="group group-static">
+          <label class="switch-row">
+            <span class="switch-label"><span class="glyph" data-glyph="phone"></span>Phone control</span>
+            <input type="checkbox" class="switch" id="remoteCheckbox" />
+          </label>
+          <div class="remote-panel" id="remotePanel" style="display:none">
+            <div class="remote-qr-frame"><img class="remote-qr" id="remoteQr" alt="QR code for phone control" /></div>
+            <div class="remote-meta">
+              <div class="remote-url" id="remoteUrl"></div>
+              <div class="remote-pin-label">PIN</div>
+              <div class="remote-pin" id="remotePin"></div>
+              <div class="remote-status" id="remoteStatus">No phones connected</div>
+            </div>
+          </div>
+          <div class="remote-error" id="remoteError"></div>
+        </div>
       </div>
-      <input type="file" id="importProgramInput" accept="application/json" style="display:none" />
-      <button id="copyReportBtn">Copy report</button>
-      <label class="checkbox"><input type="checkbox" id="showNextUpCheckbox" checked /> Show "next up" on stage</label>
     </aside>
 
-    <main class="columns">
-    <div class="column">
-      <section class="panel">
-        <h2 class="eyebrow">Timer</h2>
-        <div class="tabs" id="modeTabs">
-          <button class="tab active" data-mode="duration">Length</button>
-          <button class="tab" data-mode="clock">At</button>
-          <button class="tab" data-mode="countup">Up</button>
+    <!-- Main ------------------------------------------------ -->
+    <div class="main">
+      <header class="toolbar">
+        <div class="toolbar-title">
+          <span class="dot" id="liveDot"></span>
+          <span class="toolbar-app">Stage Timer</span>
+          <span class="titlebar-program" id="titlebarProgramName"></span>
         </div>
+        <div class="update-banner" id="updateBanner" style="display:none">
+          <span class="update-badge"></span>
+          <span id="updateBannerText"></span>
+          <button id="whatsNewBtn" class="update-link">What’s new</button>
+          <button id="installUpdateBtn">Restart &amp; update</button>
+        </div>
+        <div class="toolbar-actions">
+          <button id="blackoutBtn" class="ghost" data-icon="moon" title="Shortcut: B">Blackout</button>
+          <button id="moveScreenBtn" class="ghost" data-icon="move" title="Move the stage window to the next screen">Move</button>
+          <button id="hideDisplayBtn" class="ghost" data-icon="close" title="Hide the stage window (H)">Close</button>
+          <button id="showDisplayBtn" class="tinted" data-icon="display" title="Shortcut: S">Send to screen</button>
+        </div>
+      </header>
 
-        <div class="presets" id="durationPresets">
-          <button data-min="1">1</button>
-          <button data-min="3">3</button>
-          <button data-min="5">5</button>
-          <button data-min="10">10</button>
-          <button data-min="15">15</button>
-          <button data-min="20">20</button>
-          <button data-min="30">30</button>
-          <button data-min="45">45</button>
-        </div>
-        <input type="text" id="durationField" class="field" placeholder="5:30" value="5:00" />
+      <div class="content">
+        <section class="hero" id="hero" data-tone="normal">
+          <div class="hero-label" id="heroLabel"></div>
+          <div class="preview-clock" id="previewClock">5:00</div>
+          <div class="hero-meta">
+            <span class="preview-status" id="previewStatus">Idle</span>
+            <span class="preview-drift" id="previewDrift"></span>
+          </div>
+          <div class="hero-progress"><div class="hero-progress-fill" id="heroProgress"></div></div>
+        </section>
 
-        <input type="text" id="clockField" class="field" placeholder="09:00" style="display:none" />
-      </section>
+        <div class="cards">
+          <section class="card">
+            <header class="card-head">
+              <h2>Timer</h2>
+            </header>
+            <div class="tabs" id="modeTabs">
+              <button class="tab active" data-mode="duration">Length</button>
+              <button class="tab" data-mode="clock">Until time</button>
+              <button class="tab" data-mode="countup">Count up</button>
+            </div>
 
-      <section class="panel">
-        <h2 class="eyebrow">Transport</h2>
-        <div class="transport-row">
-          <button id="transportBtn" class="primary">Start</button>
-          <button id="resetBtn">Reset</button>
+            <div class="presets" id="durationPresets">
+              <button data-min="1">1</button>
+              <button data-min="3">3</button>
+              <button data-min="5">5</button>
+              <button data-min="10">10</button>
+              <button data-min="15">15</button>
+              <button data-min="20">20</button>
+              <button data-min="30">30</button>
+              <button data-min="45">45</button>
+            </div>
+            <input type="text" id="durationField" class="field field-large" placeholder="5:30" value="5:00" />
+            <input type="text" id="clockField" class="field field-large" placeholder="09:00" style="display:none" />
+          </section>
+
+          <section class="card">
+            <header class="card-head">
+              <h2>Transport</h2>
+              <span class="card-hint"><kbd>Space</kbd> start / pause</span>
+            </header>
+            <div class="transport-row">
+              <button id="transportBtn" class="primary transport-main">Start</button>
+              <button id="resetBtn" class="transport-reset" title="Shortcut: R">Reset</button>
+            </div>
+            <div class="nudge-row">
+              <button data-nudge="-60000">−1m</button>
+              <button data-nudge="-15000">−15s</button>
+              <button data-nudge="15000">+15s</button>
+              <button data-nudge="60000">+1m</button>
+            </div>
+            <div class="shortcut-strip">
+              <span><kbd>↑</kbd><kbd>↓</kbd> ±1 min</span>
+              <span><kbd>←</kbd><kbd>→</kbd> ±15 s</span>
+              <span><kbd>N</kbd> next</span>
+              <span><kbd>P</kbd> previous</span>
+            </div>
+          </section>
+
+          <section class="card card-wide">
+            <header class="card-head">
+              <h2>On stage</h2>
+              <span class="card-hint"><kbd>Esc</kbd> clears message</span>
+            </header>
+            <div class="stage-grid">
+              <div class="stage-col">
+                <label class="field-label" for="labelField">Screen label</label>
+                <input type="text" id="labelField" class="field" placeholder="Worship, Sermon…" />
+              </div>
+              <div class="stage-col">
+                <label class="field-label" for="customMessage">Message</label>
+                <input type="text" id="customMessage" class="field" placeholder="Type a message and press Return" />
+              </div>
+            </div>
+            <div class="message-presets" id="messagePresets">
+              <button data-msg="5 minutes left">5 minutes left</button>
+              <button data-msg="Please wrap up">Please wrap up</button>
+              <button data-msg="Time is up">Time is up</button>
+              <button data-msg="Go to altar call">Go to altar call</button>
+              <button data-msg="Take a seat">Take a seat</button>
+              <button data-msg="Hold for offering">Hold for offering</button>
+            </div>
+            <div class="message-row">
+              <label class="switch-row switch-inline">
+                <input type="checkbox" class="switch" id="flashCheckbox" />
+                <span>Flash message</span>
+              </label>
+              <button id="clearMessageBtn">Clear message</button>
+            </div>
+          </section>
         </div>
-        <div class="nudge-row">
-          <button data-nudge="-60000">−1m</button>
-          <button data-nudge="-15000">−15s</button>
-          <button data-nudge="15000">+15s</button>
-          <button data-nudge="60000">+1m</button>
-        </div>
-      </section>
+      </div>
     </div>
-
-    <div class="column">
-      <section class="panel">
-        <h2 class="eyebrow">Message</h2>
-        <div class="presets" id="messagePresets">
-          <button data-msg="5 minutes left">5 minutes left</button>
-          <button data-msg="Please wrap up">Please wrap up</button>
-          <button data-msg="Time is up">Time is up</button>
-          <button data-msg="Go to altar call">Go to altar call</button>
-          <button data-msg="Take a seat">Take a seat</button>
-          <button data-msg="Hold for offering">Hold for offering</button>
-        </div>
-        <input type="text" id="customMessage" class="field" placeholder="Custom message — Enter to send" />
-        <div class="message-row">
-          <button id="clearMessageBtn">Clear</button>
-          <label class="checkbox"><input type="checkbox" id="flashCheckbox" /> Flash it</label>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2 class="eyebrow">Screen label</h2>
-        <input type="text" id="labelField" class="field" placeholder="Worship, Sermon…" />
-      </section>
-
-      <section class="panel">
-        <h2 class="eyebrow">Stage screen</h2>
-        <div class="transport-row">
-          <button id="blackoutBtn">Blackout</button>
-          <button id="moveScreenBtn">Move to next screen</button>
-        </div>
-        <div class="transport-row">
-          <button id="showDisplayBtn" title="Shortcut: S">Send to screen</button>
-          <button id="hideDisplayBtn" title="Shortcut: H">Close</button>
-        </div>
-      </section>
-    </div>
-    </main>
   </div>
 
   <dialog id="screenPickerDialog" class="paste-dialog">
     <h2 class="eyebrow">Choose the stage screen</h2>
+    <p class="dialog-sub">The stage window fills the whole screen you pick. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>H</kbd> hides it from anywhere.</p>
     <div class="screen-picker-list" id="screenPickerList"></div>
     <div class="paste-actions">
       <button id="screenPickerCancelBtn">Cancel</button>
@@ -139,12 +202,60 @@
 
   <dialog id="pasteDialog" class="paste-dialog">
     <h2 class="eyebrow">Paste program</h2>
-    <textarea id="pasteInput" rows="10" placeholder="Paste the service order text here…"></textarea>
+    <p class="dialog-sub">Paste the service order as it was sent: one segment per line, with a duration or a start time.</p>
+    <textarea id="pasteInput" rows="9" placeholder="Opening prayer: 20mins&#10;Praise: 15mins&#10;Sermon: 1hr"></textarea>
     <div class="paste-preview" id="pastePreview"></div>
     <div class="paste-summary" id="pasteSummary"></div>
     <div class="paste-actions">
       <button id="pasteCancelBtn">Cancel</button>
       <button id="pasteApplyBtn" class="primary">Load program</button>
+    </div>
+  </dialog>
+
+  <dialog id="editDialog" class="paste-dialog">
+    <h2 class="eyebrow">Edit program</h2>
+    <p class="dialog-sub">Segments that have already started can be renamed and retimed, but not removed or moved.</p>
+    <div class="edit-head"><span>Segment</span><span>Length</span></div>
+    <div class="paste-preview edit-list" id="editList"></div>
+    <button id="editAddBtn" class="edit-add" data-icon="plus">Add segment</button>
+    <div class="paste-summary" id="editSummary"></div>
+    <div class="paste-actions">
+      <button id="editCancelBtn">Cancel</button>
+      <button id="editApplyBtn" class="primary">Apply</button>
+    </div>
+  </dialog>
+
+  <dialog id="nameDialog" class="paste-dialog name-dialog">
+    <h2 class="eyebrow" id="nameDialogTitle">Save program as</h2>
+    <input type="text" id="nameDialogInput" class="field" maxlength="80" />
+    <div class="name-dialog-error" id="nameDialogError"></div>
+    <div class="paste-actions">
+      <button id="nameDialogCancelBtn">Cancel</button>
+      <button id="nameDialogOkBtn" class="primary">OK</button>
+    </div>
+  </dialog>
+
+  <dialog id="manageDialog" class="paste-dialog">
+    <h2 class="eyebrow">Saved programs</h2>
+    <div class="manage-list" id="manageList"></div>
+    <div class="paste-actions">
+      <button id="manageSaveAsBtn">Save current as new…</button>
+      <button id="manageCloseBtn" class="primary">Done</button>
+    </div>
+  </dialog>
+
+  <dialog id="updateDialog" class="paste-dialog update-dialog">
+    <div class="update-hero">
+      <div class="update-icon"></div>
+      <div>
+        <h2 class="eyebrow" id="updateDialogTitle">What’s new</h2>
+        <p class="dialog-sub" id="updateDialogSub"></p>
+      </div>
+    </div>
+    <div class="update-notes" id="updateNotes"></div>
+    <div class="paste-actions">
+      <button id="updateLaterBtn">Later</button>
+      <button id="updateActionBtn" class="primary">Restart &amp; update</button>
     </div>
   </dialog>
 

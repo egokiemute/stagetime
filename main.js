@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, screen, powerSaveBlocker, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, powerSaveBlocker, globalShortcut, nativeTheme, shell } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
+const remote = require('./remote');
 
 let controlWin = null;
 let displayWin = null;
@@ -11,13 +12,21 @@ function getDisplays() {
   return screen.getAllDisplays();
 }
 
+// On macOS the window is transparent with a native sidebar material behind
+// it; the renderer opts into that layout via window.api.platform.
+const isMac = process.platform === 'darwin';
+
 function createControlWindow() {
   controlWin = new BrowserWindow({
-    width: 1200,
-    height: 760,
+    width: 1280,
+    height: 820,
+    minWidth: 960,
+    minHeight: 640,
     title: 'Stage Timer',
     titleBarStyle: 'hiddenInset',
-    backgroundColor: '#0E0E11',
+    trafficLightPosition: { x: 18, y: 18 },
+    backgroundColor: isMac ? '#00000000' : '#1C1C1E',
+    ...(isMac ? { vibrancy: 'sidebar', visualEffectState: 'active' } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -25,7 +34,11 @@ function createControlWindow() {
     }
   });
   controlWin.loadFile('control.html');
-  controlWin.on('closed', () => { controlWin = null; });
+  // The phone-control toggle lives in this window, so it can't outlive it.
+  controlWin.on('closed', () => {
+    controlWin = null;
+    remote.stop();
+  });
 }
 
 // The stage window only ever appears once the operator explicitly chooses a
@@ -85,7 +98,19 @@ function notifyScreens() {
   if (controlWin) controlWin.webContents.send('screens-changed', getDisplays().length);
 }
 
+remote.init({
+  onCommand: (cmd) => {
+    if (controlWin) controlWin.webContents.send('remote-command', cmd);
+  },
+  onStatus: (count) => {
+    if (controlWin) controlWin.webContents.send('remote-status', count);
+  }
+});
+
 app.whenReady().then(() => {
+  // The UI is dark-only (it runs in a dim booth), so keep native materials
+  // and form controls dark even when the Mac is in light mode.
+  nativeTheme.themeSource = 'dark';
   createControlWindow();
   powerSaveId = powerSaveBlocker.start('prevent-display-sleep');
 
@@ -119,16 +144,53 @@ app.whenReady().then(() => {
   }
 });
 
-autoUpdater.on('update-downloaded', (info) => {
-  if (controlWin) controlWin.webContents.send('update-ready', info.version);
+// The macOS build is unsigned, and Squirrel.Mac refuses to install an
+// unsigned update — so a Mac only announces the release (with its notes) and
+// links to the download. Windows and Linux download in the background and
+// wait for an explicit "Restart & update".
+const RELEASES_URL = 'https://github.com/egokiemute/stagetime/releases';
+const canAutoInstall = !isMac;
+autoUpdater.autoDownload = canAutoInstall;
+
+// Kept here as well as sent, because the launch-time check can finish before
+// the control window has loaded and registered its listener.
+let updateState = null;
+
+function releaseNotesText(notes) {
+  if (!notes) return '';
+  if (Array.isArray(notes)) return notes.map((n) => n.note || '').join('\n');
+  return String(notes);
+}
+
+function setUpdateState(stage, info) {
+  updateState = {
+    stage, // 'downloading' | 'ready' | 'available'
+    version: info.version,
+    notes: releaseNotesText(info.releaseNotes),
+    canInstall: canAutoInstall
+  };
+  if (controlWin) controlWin.webContents.send('update-state', updateState);
+}
+
+autoUpdater.on('update-available', (info) => {
+  setUpdateState(canAutoInstall ? 'downloading' : 'available', info);
+});
+
+autoUpdater.on('update-downloaded', (info) => setUpdateState('ready', info));
+
+ipcMain.handle('get-update-state', () => updateState);
+
+ipcMain.on('open-update-page', () => {
+  if (updateState) shell.openExternal(`${RELEASES_URL}/tag/v${updateState.version}`);
 });
 
 ipcMain.on('install-update', () => {
-  autoUpdater.quitAndInstall();
+  if (updateState && updateState.stage === 'ready') autoUpdater.quitAndInstall();
 });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  remote.stop();
   if (powerSaveId !== null && powerSaveBlocker.isStarted(powerSaveId)) {
     powerSaveBlocker.stop(powerSaveId);
   }
@@ -197,3 +259,15 @@ ipcMain.handle('hide-display', () => {
 });
 
 ipcMain.handle('screen-count', () => getDisplays().length);
+
+ipcMain.handle('remote-start', async () => {
+  try {
+    return await remote.start();
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('remote-stop', () => remote.stop());
+
+ipcMain.on('remote-state', (_event, state) => remote.broadcast(state));

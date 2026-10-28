@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0E0E11" />
+  <title>Stage Timer Remote</title>
+  <link rel="stylesheet" href="remote.css" />
+</head>
+<body>
+  <section class="screen" id="pinScreen">
+    <h1 class="pin-title">Stage Timer</h1>
+    <p class="pin-hint">Enter the PIN shown on the control laptop.</p>
+    <input type="text" id="pinInput" class="field pin-input" inputmode="numeric" autocomplete="one-time-code" maxlength="4" placeholder="••••" />
+    <button id="pinSubmitBtn" class="primary">Connect</button>
+    <div class="error" id="pinError"></div>
+  </section>
+
+  <section class="screen" id="mainScreen" hidden>
+    <header class="topbar">
+      <span class="dot" id="connDot"></span>
+      <span id="connLabel">Connected</span>
+      <span class="topbar-program" id="programTitle"></span>
+    </header>
+
+    <div class="clock-block">
+      <div class="label" id="labelText"></div>
+      <div class="clock" id="clockText">0:00</div>
+      <div class="status" id="statusText">Idle</div>
+      <div class="message-live" id="messageText"></div>
+    </div>
+
+    <section class="panel">
+      <div class="row">
+        <button id="toggleBtn" class="primary">Start</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+      <div class="grid4">
+        <button data-nudge="-60000">−1m</button>
+        <button data-nudge="-15000">−15s</button>
+        <button data-nudge="15000">+15s</button>
+        <button data-nudge="60000">+1m</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="eyebrow">Timer</h2>
+      <div class="tabs">
+        <button class="tab" data-mode="duration">Length</button>
+        <button class="tab" data-mode="clock">Until time</button>
+        <button class="tab" data-mode="countup">Count up</button>
+      </div>
+      <div class="row">
+        <input type="text" id="durationInput" class="field" inputmode="decimal" placeholder="Length, e.g. 5 or 5:30" />
+        <button id="setDurationBtn">Set</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="eyebrow">Run of service</h2>
+      <div class="program-list" id="programList"></div>
+      <div class="row">
+        <button id="prevBtn">◀ Previous</button>
+        <button id="nextBtn" class="primary">Next ▶</button>
+      </div>
+      <button id="editBtn" class="wide">Edit segments</button>
+    </section>
+
+    <section class="panel">
+      <h2 class="eyebrow">Message</h2>
+      <div class="grid2" id="messagePresets">
+        <button data-msg="5 minutes left">5 minutes left</button>
+        <button data-msg="Please wrap up">Please wrap up</button>
+        <button data-msg="Time is up">Time is up</button>
+        <button data-msg="Go to altar call">Go to altar call</button>
+        <button data-msg="Take a seat">Take a seat</button>
+        <button data-msg="Hold for offering">Hold for offering</button>
+      </div>
+      <div class="row">
+        <input type="text" id="customMessage" class="field" placeholder="Custom message" maxlength="200" />
+        <button id="sendMessageBtn">Send</button>
+      </div>
+      <button id="clearMessageBtn" class="wide">Clear message</button>
+    </section>
+  </section>
+
+  <section class="sheet" id="editSheet" hidden>
+    <div class="sheet-inner">
+      <h2 class="eyebrow">Edit segments</h2>
+      <div class="edit-list" id="editList"></div>
+      <button id="editAddBtn" class="wide">+ Add segment</button>
+      <div class="summary" id="editSummary"></div>
+      <div class="row">
+        <button id="editCancelBtn">Cancel</button>
+        <button id="editApplyBtn" class="primary">Apply</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="shared.js"></script>
+  <script src="remote-client.js"></script>
+</body>
+</html>

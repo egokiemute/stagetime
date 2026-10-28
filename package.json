@@ -1,7 +1,7 @@
 {
   "name": "stagetimer",
-  "version": "1.0.6",
-  "description": "Stage countdown timer for church services — control window + projector display window.",
+  "version": "1.1.0",
+  "description": "Stage countdown timer for church services \u2014 control window + projector display window.",
   "main": "main.js",
   "author": {
     "name": "Ego Okiemute",
@@ -16,7 +16,8 @@
     "release": "electron-builder --publish always"
   },
   "dependencies": {
-    "electron-updater": "^6.0.0"
+    "electron-updater": "^6.0.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "electron": "^32.0.0",
@@ -35,7 +36,11 @@
       "control.js",
       "display.html",
       "display.css",
-      "display.js"
+      "display.js",
+      "remote.js",
+      "remote.html",
+      "remote.css",
+      "remote-client.js"
     ],
     "publish": [
       {
@@ -44,18 +49,29 @@
       }
     ],
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "identity": null,
       "artifactName": "Stage-Timer-${arch}.${ext}"
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "artifactName": "Stage-Timer-Setup.${ext}"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "AudioVideo",
       "artifactName": "Stage-Timer.${ext}"
+    },
+    "releaseInfo": {
+      "releaseNotesFile": "release-notes.md"
     }
   }
 }
