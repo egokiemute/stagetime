@@ -27,3 +27,16 @@ jobs:
       - run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # electron-builder doesn't reliably carry release-notes.md into the release
+  # body, and that body is what installed apps show in their "What's new"
+  # dialog — so set it explicitly once every platform has uploaded.
+  notes:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

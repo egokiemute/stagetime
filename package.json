@@ -69,9 +69,6 @@
       ],
       "category": "AudioVideo",
       "artifactName": "Stage-Timer.${ext}"
-    },
-    "releaseInfo": {
-      "releaseNotesFile": "release-notes.md"
     }
   }
 }
