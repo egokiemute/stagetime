@@ -6,6 +6,7 @@ let state = DEFAULT_STATE;
 const clockEl = document.getElementById('clock');
 const labelEl = document.getElementById('label');
 const messageEl = document.getElementById('message');
+const messageTextEl = document.getElementById('messageText');
 const progressFillEl = document.getElementById('progressFill');
 const blackoutEl = document.getElementById('blackout');
 const nextUpEl = document.getElementById('nextUp');
@@ -13,6 +14,26 @@ const nextUpEl = document.getElementById('nextUp');
 window.api.onState((next) => {
   state = next;
 });
+
+// Largest size that fits the screen, so "Time is up" fills it and a long
+// message still fits. Layout is expensive, so only run this when the text or
+// the screen changes.
+function fitMessage() {
+  if (!messageEl.classList.contains('on')) return;
+  const maxHeight = window.innerHeight * 0.86;
+  let low = 16;
+  let high = window.innerHeight * 0.7;
+  while (high - low > 1) {
+    const size = (low + high) / 2;
+    messageTextEl.style.fontSize = `${size}px`;
+    const fits = messageTextEl.offsetHeight <= maxHeight && messageTextEl.scrollWidth <= messageTextEl.clientWidth;
+    if (fits) low = size;
+    else high = size;
+  }
+  messageTextEl.style.fontSize = `${low}px`;
+}
+
+window.addEventListener('resize', fitMessage);
 
 function repaint() {
   const now = Date.now();
@@ -35,12 +56,14 @@ function repaint() {
         : formatTime(ms);
   labelEl.textContent = state.label || '';
 
-  if (state.message) {
-    messageEl.textContent = state.message;
-    messageEl.classList.toggle('flash', !!state.flash);
-  } else {
-    messageEl.textContent = '';
-    messageEl.classList.remove('flash');
+  // Checks the time itself as well, so the speaker's screen clears on time
+  // even if the control window's update is late.
+  const message = state.message && now < state.messageUntil ? state.message : '';
+  messageEl.classList.toggle('on', !!message);
+  messageTextEl.classList.toggle('flash', !!message && !!state.flash);
+  if (messageTextEl.textContent !== message) {
+    messageTextEl.textContent = message;
+    fitMessage();
   }
 
   progressFillEl.style.width = `${idleUntouched ? 0 : progress(state, ms) * 100}%`;

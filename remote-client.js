@@ -185,6 +185,10 @@ function renderClock() {
     statusText.textContent = `${running ? 'Running' : 'Paused'}${endsLabel}`;
   }
   toggleBtn.textContent = running ? 'Pause' : state.status === 'paused' ? 'Resume' : 'Start';
+
+  messageText.textContent = state.message
+    ? `On stage: “${state.message}” · ${Math.max(0, Math.ceil((state.messageUntil - t) / 1000))}s`
+    : '';
 }
 
 function renderProgramList() {
@@ -222,7 +226,6 @@ function render() {
   if (!state) return;
   programTitle.textContent = state.program.name || '';
   labelText.textContent = state.label || '';
-  messageText.textContent = state.message ? `On stage: “${state.message}”` : '';
   document.querySelectorAll('.tab').forEach((tab) => {
     tab.classList.toggle('active', tab.dataset.mode === state.mode);
   });

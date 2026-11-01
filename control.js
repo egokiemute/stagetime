@@ -302,6 +302,7 @@ const blackoutBtn = document.getElementById('blackoutBtn');
 const moveScreenBtn = document.getElementById('moveScreenBtn');
 const showDisplayBtn = document.getElementById('showDisplayBtn');
 const hideDisplayBtn = document.getElementById('hideDisplayBtn');
+const messageStatus = document.getElementById('messageStatus');
 
 document.querySelectorAll('.tab').forEach((tab) => {
   tab.addEventListener('click', () => {
@@ -347,10 +348,9 @@ document.querySelectorAll('.nudge-row button').forEach((btn) => {
 messagePresets.querySelectorAll('button').forEach((btn) => {
   btn.addEventListener('click', () => {
     const msg = btn.dataset.msg;
-    state.message = state.message === msg ? '' : msg;
     customMessage.value = '';
-    updateMessageButtons();
-    push();
+    if (state.message === msg) clearMessage();
+    else sendMessage(msg);
   });
 });
 
@@ -366,17 +366,30 @@ customMessage.addEventListener('keydown', (e) => {
   }
 });
 
+let messageTimer = null;
+
 function sendMessage(text) {
+  clearTimeout(messageTimer);
   state.message = text;
+  state.messageUntil = Date.now() + MESSAGE_MS;
+  messageTimer = setTimeout(expireMessage, MESSAGE_MS);
+  updateMessageButtons();
+  push();
+}
+
+// Leaves the custom field alone: the operator may be typing the next message,
+// and pressing Return again resends the one that just left.
+function expireMessage() {
+  clearTimeout(messageTimer);
+  state.message = '';
+  state.messageUntil = null;
   updateMessageButtons();
   push();
 }
 
 function clearMessage() {
-  state.message = '';
   customMessage.value = '';
-  updateMessageButtons();
-  push();
+  expireMessage();
 }
 
 clearMessageBtn.addEventListener('click', clearMessage);
@@ -418,7 +431,7 @@ async function openScreenPicker(afterPick) {
   screenPickerList.innerHTML = '';
   screens.forEach((s) => {
     const btn = document.createElement('button');
-    const bits = [`Display ${s.index + 1} — ${s.width}×${s.height}`];
+    const bits = [`${s.name} — ${s.width}×${s.height}`];
     if (s.isPrimary) bits.push('(built-in)');
     if (s.isCurrent) bits.push('— this screen');
     btn.textContent = bits.join(' ');
@@ -445,7 +458,31 @@ function sendToScreen() {
   withDisplayReady(() => window.api.showDisplay());
 }
 
-showDisplayBtn.addEventListener('click', sendToScreen);
+let displayStatus = { open: false, visible: false };
+
+function renderDisplayStatus(status) {
+  displayStatus = status;
+  showDisplayBtn.classList.toggle('connected', status.visible);
+  showDisplayBtn.classList.toggle('tinted', !status.visible);
+  if (status.visible) {
+    const name = status.name.length > 24 ? `${status.name.slice(0, 23)}…` : status.name;
+    showDisplayBtn.textContent = `On ${name}`;
+    showDisplayBtn.title = `Showing on ${status.name} (${status.width}×${status.height}). Click to change screen.`;
+  } else {
+    showDisplayBtn.textContent = 'Send to screen';
+    showDisplayBtn.title = status.open ? `Shortcut: S. Shows on ${status.name}.` : 'Shortcut: S';
+  }
+}
+
+// The S shortcut goes straight to sendToScreen, so a stray key press can't put
+// the picker up mid-service. Changing screen takes a deliberate click.
+showDisplayBtn.addEventListener('click', () => {
+  if (displayStatus.visible) openScreenPicker();
+  else sendToScreen();
+});
+
+window.api.onDisplayStatus(renderDisplayStatus);
+window.api.getDisplayStatus().then(renderDisplayStatus);
 
 window.api.onScreensChanged((count) => {
   moveScreenBtn.disabled = count <= 1;
@@ -639,6 +676,10 @@ function repaint() {
   }
 
   transportBtn.textContent = running ? 'Pause' : state.status === 'paused' ? 'Resume' : 'Start';
+
+  messageStatus.textContent = state.message
+    ? `On stage · ${Math.max(0, Math.ceil((state.messageUntil - Date.now()) / 1000))}s`
+    : '';
 
   checkAutoAdvance();
   repaintProgram();

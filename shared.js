@@ -2,6 +2,8 @@
 // module-scope globals shared across every classic <script> in the document,
 // so this is the single source of truth for state shape and time maths.
 
+const MESSAGE_MS = 10000; // how long a message stays on the stage screen
+
 const DEFAULT_STATE = {
   mode: 'duration',        // 'duration' | 'clock' | 'countup'
   status: 'idle',          // 'idle' | 'running' | 'paused'
@@ -15,7 +17,8 @@ const DEFAULT_STATE = {
   frozenMs: 300000,        // held value while idle or paused
   totalMs: 300000,         // denominator for the progress bar
   label: '',               // 'Worship', 'Sermon' — shown above the clock
-  message: '',              // 'Please wrap up'
+  message: '',              // 'Please wrap up' — takes over the whole stage screen
+  messageUntil: null,       // epoch ms the message leaves the screen
   flash: false,
   blackout: false,
   showClock: true,

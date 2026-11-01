@@ -242,6 +242,23 @@ button.tinted {
 
 button.tinted:hover { background: rgba(48, 209, 88, 0.24); }
 
+/* Send to screen, once the stage window is showing */
+button.connected {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+button.connected:hover { background: #3EDD66; }
+
+button.connected::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-ink);
+}
+
 button.ghost {
   background: transparent;
   color: var(--label-2);
@@ -954,6 +971,14 @@ kbd + kbd { margin-left: 2px; }
   padding: 0 8px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.message-status {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
 }
 
 .message-row {

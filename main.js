@@ -30,7 +30,10 @@ function createControlWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // The stage window can cover this one on a single monitor; its message
+      // timer and phone updates still have to run on time.
+      backgroundThrottling: false
     }
   });
   controlWin.loadFile('control.html');
@@ -70,9 +73,12 @@ function openDisplayOnScreen(index) {
     });
     displayWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     displayWin.loadFile('display.html');
+    displayWin.on('show', notifyDisplayStatus);
+    displayWin.on('hide', notifyDisplayStatus);
     displayWin.on('closed', () => {
       displayWin = null;
       displayScreenIndex = null;
+      notifyDisplayStatus();
     });
   }
 
@@ -80,6 +86,7 @@ function openDisplayOnScreen(index) {
   displayWin.setBounds(target.bounds);
   displayWin.setAlwaysOnTop(true, 'screen-saver');
   displayWin.show();
+  notifyDisplayStatus();
   return true;
 }
 
@@ -92,10 +99,36 @@ function moveDisplayToScreen(index) {
   displayScreenIndex = index;
   displayWin.setBounds(target.bounds);
   displayWin.setAlwaysOnTop(true, 'screen-saver');
+  notifyDisplayStatus();
+}
+
+function screenName(display, index) {
+  return display.label || `Display ${index + 1}`;
+}
+
+// Asks where the window actually is rather than trusting displayScreenIndex,
+// which can point at the wrong screen once unplugging one renumbers the rest.
+function displayStatus() {
+  if (!displayWin) return { open: false, visible: false };
+  const current = screen.getDisplayMatching(displayWin.getBounds());
+  const index = getDisplays().findIndex((d) => d.id === current.id);
+  return {
+    open: true,
+    visible: displayWin.isVisible(),
+    index,
+    name: screenName(current, index),
+    width: current.bounds.width,
+    height: current.bounds.height
+  };
+}
+
+function notifyDisplayStatus() {
+  if (controlWin) controlWin.webContents.send('display-status', displayStatus());
 }
 
 function notifyScreens() {
   if (controlWin) controlWin.webContents.send('screens-changed', getDisplays().length);
+  notifyDisplayStatus();
 }
 
 remote.init({
@@ -216,6 +249,7 @@ ipcMain.handle('list-screens', () => {
   const current = controlWin ? screen.getDisplayMatching(controlWin.getBounds()) : null;
   return displays.map((d, i) => ({
     index: i,
+    name: screenName(d, i),
     width: d.bounds.width,
     height: d.bounds.height,
     isPrimary: d.id === primary.id,
@@ -226,6 +260,8 @@ ipcMain.handle('list-screens', () => {
 ipcMain.handle('open-display-on-screen', (_event, index) => openDisplayOnScreen(index));
 
 ipcMain.handle('has-display', () => !!displayWin);
+
+ipcMain.handle('get-display-status', () => displayStatus());
 
 ipcMain.handle('next-screen', () => {
   if (displayScreenIndex === null) return null;

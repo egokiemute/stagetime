@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld('api', {
   listScreens: () => ipcRenderer.invoke('list-screens'),
   openDisplayOnScreen: (index) => ipcRenderer.invoke('open-display-on-screen', index),
   hasDisplay: () => ipcRenderer.invoke('has-display'),
+  getDisplayStatus: () => ipcRenderer.invoke('get-display-status'),
+  onDisplayStatus: (callback) => {
+    ipcRenderer.on('display-status', (_event, status) => callback(status));
+  },
   onUpdateState: (callback) => {
     ipcRenderer.on('update-state', (_event, update) => callback(update));
   },
