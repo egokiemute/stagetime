@@ -121,7 +121,7 @@ field), except the last one, which works everywhere:
 | B | Blackout the stage screen |
 | S | Send stage window to a screen (asks the first time) |
 | H | Close/hide the stage window |
-| Esc | Clear the message bar |
+| Esc | Remove the message from the stage screen |
 | N | Next segment (run-of-service) |
 | P | Previous segment (run-of-service) |
 | 1–9 | Jump to that segment |
